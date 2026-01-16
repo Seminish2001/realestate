@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  VISITOR
+  USER
+  AGENT
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  SOLD
+  RENTED
+  ARCHIVED
+}
+
+enum ListingType {
+  APARTMENT
+  HOUSE
+  LAND
+  COMMERCIAL
+  VACATION
+}
+
+enum ListingIntent {
+  SALE
+  RENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum Currency {
+  EUR
+  ALL
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  phone         String?
+  hashedPassword String?
+  role          RoleName   @default(USER)
+  image         String?
+  agencyId      String?
+  agency        Agency?    @relation(fields: [agencyId], references: [id])
+  listings      Listing[]
+  favorites     Favorite[]
+  savedSearches SavedSearch[]
+  leads         Lead[]
+  subscriptions Subscription[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  address   String?
+  city      String?
+  phone     String?
+  website   String?
+  agents    User[]
+  listings  Listing[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  country   String
+  region    String?
+  city      String
+  area      String?
+  slug      String   @unique
+  listings  Listing[]
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  title        String
+  description  String
+  type         ListingType
+  intent       ListingIntent
+  price        Int
+  currency     Currency      @default(EUR)
+  priceAll     Int?
+  sizeM2       Int
+  bedrooms     Int
+  bathrooms    Int
+  floor        Int?
+  totalFloors  Int?
+  yearBuilt    Int?
+  condition    String?
+  energyClass  String?
+  legalStatus  String?
+  furnished    Boolean       @default(false)
+  newBuild     Boolean       @default(false)
+  beachfront   Boolean       @default(false)
+  parking      Boolean       @default(false)
+  amenities    String[]
+  address      String
+  showAddress  String        @default("approximate")
+  latitude     Float
+  longitude    Float
+  status       ListingStatus @default(PENDING)
+  featured     Boolean       @default(false)
+  listedAt     DateTime      @default(now())
+  ownerId      String
+  owner        User          @relation(fields: [ownerId], references: [id])
+  agencyId     String?
+  agency       Agency?       @relation(fields: [agencyId], references: [id])
+  locationId   String
+  location     Location      @relation(fields: [locationId], references: [id])
+  media        ListingMedia[]
+  leads        Lead[]
+  favorites    Favorite[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, featured, listedAt])
+  @@index([intent, type, price])
+  @@index([locationId])
+}
+
+model ListingMedia {
+  id        String   @id @default(cuid())
+  listingId String
+  url       String
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id])
+
+  @@unique([userId, listingId])
+}
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  filters     Json
+  alertsEmail Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  listingId  String
+  userId     String?
+  name       String
+  email      String
+  phone      String
+  message    String
+  status     LeadStatus @default(NEW)
+  createdAt  DateTime   @default(now())
+  listing    Listing    @relation(fields: [listingId], references: [id])
+  user       User?      @relation(fields: [userId], references: [id])
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  priceMonthly Int
+  currency    Currency @default(EUR)
+  listingLimit Int
+  featuredAddOnPrice Int
+  createdAt   DateTime @default(now())
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  status    String
+  currentPeriodEnd DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  plan      Plan     @relation(fields: [planId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  targetId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
